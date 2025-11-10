@@ -18,7 +18,7 @@ const PrecioProveedorSchema = new mongoose.Schema({
     required: true,
     min: 0
   }
-}, { _id: true }); // Le decimos a Mongoose que cree un _id único para cada precio
+}, { _id: true });
 
 const productoSchema = new mongoose.Schema({
   nombre: {
@@ -36,7 +36,6 @@ const productoSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  // Aquí está la magia: un producto tiene un ARRAY de precios
   preciosProveedores: [PrecioProveedorSchema] 
 }, {
   timestamps: true,

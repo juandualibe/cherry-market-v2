@@ -1,27 +1,18 @@
 {
   "version": 2,
-  
   "builds": [
     {
       "src": "api/index.js",
       "use": "@vercel/node"
-    },
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
     }
   ],
-  
   "rewrites": [
     {
       "source": "/api/(.*)",
       "destination": "/api/index.js"
     },
     {
-      "source": "/((?!api/|assets/).*)",
+      "source": "/((?!api/|_next/|static/|assets/|favicon.ico|sw.js|src/|node_modules/|@vite|@react-refresh|.*\\..*).*)",
       "destination": "/index.html"
     }
   ]

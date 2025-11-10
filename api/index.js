@@ -27,12 +27,14 @@ const proveedoresRoutes = require('./routes/proveedores');
 const verduleriaRoutes = require('./routes/verduleria');
 const migracionRoutes = require('./routes/migracion');
 const ordenesRoutes = require('./routes/ordenes');
+const productosRoues = require('./routes/productos');
 
 app.use('/api/clientes', clientesRoutes);
 app.use('/api/proveedores', proveedoresRoutes);
 app.use('/api/verduleria', verduleriaRoutes);
 app.use('/api/migracion', migracionRoutes);
 app.use('/api/ordenes', ordenesRoutes); 
+app.use('/api/productos', productosRoues);
 
 // Ruta de prueba
 app.get('/api', (req, res) => {

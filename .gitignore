@@ -29,3 +29,4 @@ dist-ssr
 
 # Ignorar la carpeta de build/cache de Vercel
 .vercel
+.vercel

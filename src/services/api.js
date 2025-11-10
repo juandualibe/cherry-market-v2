@@ -156,6 +156,42 @@ export const eliminarPago = async (pagoId) => {
   return await response.json();
 };
 
+// ==================== PRODUCTOS (CATÁLOGO) ====================
+
+// Obtener TODOS los productos (para listas/dropdowns)
+export const obtenerProductos = async () => {
+  return apiFetch(`${API_URL}/productos`);
+};
+
+// Obtener UN producto (para ver sus detalles y precios)
+export const obtenerProductoDetalle = async (id) => {
+  return apiFetch(`${API_URL}/productos/${id}`);
+};
+
+// Crear un nuevo producto en el catálogo
+export const crearProducto = async (producto) => {
+  // producto debe ser { nombre, codigoBarras, descripcion }
+  return apiFetch(`${API_URL}/productos`, {
+    method: 'POST',
+    body: JSON.stringify(producto),
+  });
+};
+
+// Asignar o actualizar un precio de proveedor a un producto
+export const agregarPrecioProducto = async (productoId, proveedorId, precio) => {
+  return apiFetch(`${API_URL}/productos/${productoId}/precios`, {
+    method: 'POST',
+    body: JSON.stringify({ proveedorId, precio }),
+  });
+};
+
+// Quitar un precio de proveedor de un producto
+export const eliminarPrecioProducto = async (productoId, precioId) => {
+  return apiFetch(`${API_URL}/productos/${productoId}/precios/${precioId}`, {
+    method: 'DELETE',
+  });
+};
+
 // ==================== VERDULERÍA ====================
 
 export const obtenerMeses = async () => {

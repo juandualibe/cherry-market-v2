@@ -110,6 +110,18 @@ function Navegacion() {
             <span className="nav-icon">🥬</span>
             {!isCollapsed && <span className="nav-text">Verdulería</span>}
           </NavLink>
+
+          {/* --- 1. AQUÍ ESTÁ EL LINK A PRODUCTOS --- */}
+          <NavLink
+            to="/productos"
+            className={({ isActive }) =>
+              isActive ? "nav-item active" : "nav-item"
+            }
+            onClick={handleNavClick}
+          >
+            <span className="nav-icon">🏷️</span>
+            {!isCollapsed && <span className="nav-text">Productos</span>}
+          </NavLink>
         </nav>
 
         <NavLink

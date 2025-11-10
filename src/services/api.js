@@ -157,39 +157,46 @@ export const eliminarPago = async (pagoId) => {
 };
 
 // ==================== PRODUCTOS (CATÁLOGO) ====================
+// (Escrito con 'fetch' simple, SIN 'apiFetch')
 
-// Obtener TODOS los productos (para listas/dropdowns)
 export const obtenerProductos = async () => {
-  return apiFetch(`${API_URL}/productos`);
+  const response = await fetch(`${API_URL}/productos`);
+  if (!response.ok) throw new Error('Error al obtener productos');
+  return await response.json();
 };
 
-// Obtener UN producto (para ver sus detalles y precios)
 export const obtenerProductoDetalle = async (id) => {
-  return apiFetch(`${API_URL}/productos/${id}`);
+  const response = await fetch(`${API_URL}/productos/${id}`);
+  if (!response.ok) throw new Error('Error al obtener detalle');
+  return await response.json();
 };
 
-// Crear un nuevo producto en el catálogo
 export const crearProducto = async (producto) => {
-  // producto debe ser { nombre, codigoBarras, descripcion }
-  return apiFetch(`${API_URL}/productos`, {
+  const response = await fetch(`${API_URL}/productos`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(producto),
   });
+  if (!response.ok) throw await response.json(); // Devolver el error del backend
+  return await response.json();
 };
 
-// Asignar o actualizar un precio de proveedor a un producto
 export const agregarPrecioProducto = async (productoId, proveedorId, precio) => {
-  return apiFetch(`${API_URL}/productos/${productoId}/precios`, {
+  const response = await fetch(`${API_URL}/productos/${productoId}/precios`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ proveedorId, precio }),
   });
+  if (!response.ok) throw await response.json();
+  return await response.json();
 };
 
-// Quitar un precio de proveedor de un producto
 export const eliminarPrecioProducto = async (productoId, precioId) => {
-  return apiFetch(`${API_URL}/productos/${productoId}/precios/${precioId}`, {
+  const response = await fetch(`${API_URL}/productos/${productoId}/precios/${precioId}`, {
     method: 'DELETE',
   });
+  if (!response.ok) throw await response.json();
+  return await response.json();
 };
 
 // ==================== VERDULERÍA ====================

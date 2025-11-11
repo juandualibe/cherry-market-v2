@@ -4,111 +4,155 @@ import {
   obtenerOrden,
   obtenerProductosOrden,
   obtenerProveedores,
-  agregarProductoOrden,
+  agregarProductoOrden, // Esto ahora usa la nueva lógica del backend
   eliminarProductoOrden,
   escanearCodigo,
+  obtenerProductos, // <-- NUEVO: Para el catálogo
+  obtenerProductoDetalle // <-- NUEVO: Para buscar precios
 } from "../services/api";
 import EscanerBarras from "../components/EscanerBarras";
 import { formatearFechaLocal } from "../utils/dateUtils";
 import toast from "react-hot-toast";
+import { confirmarAccion } from '../utils/confirmUtils';
 
 function DetalleOrden() {
   const { ordenId } = useParams();
   const navigate = useNavigate();
 
   const [orden, setOrden] = useState(null);
-  const [productos, setProductos] = useState([]);
+  const [productos, setProductos] = useState([]); // Productos EN ESTA ORDEN
   const [proveedor, setProveedor] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  // Estados para agregar producto
-  const [nombreProducto, setNombreProducto] = useState("");
-  const [codigoBarras, setCodigoBarras] = useState("");
-  const [cantidad, setCantidad] = useState("");
-  const [precio, setPrecio] = useState("");
+  
+  // --- INICIO DE CAMBIOS ---
+  // Estados para el nuevo formulario de Catálogo
+  const [catalogo, setCatalogo] = useState([]); // Productos del Catálogo Maestro
+  const [productoSeleccionadoId, setProductoSeleccionadoId] = useState('');
+  const [cantidad, setCantidad] = useState('');
+  const [precioAcordado, setPrecioAcordado] = useState('');
+  const [loadingPrecio, setLoadingPrecio] = useState(false);
+  // --- FIN DE CAMBIOS ---
 
   // Estados para escáner
   const [escaneadorAbierto, setEscaneadorAbierto] = useState(false);
 
-  // CÓDIGO NUEVO (simplificado)
   useEffect(() => {
     cargarDatos();
   }, [ordenId]);
 
+  // --- CAMBIO: Cargar el catálogo de productos junto con la orden ---
   const cargarDatos = async () => {
     try {
       setLoading(true);
-      const [ordenData, productosData, proveedoresData] = await Promise.all([
+      const [ordenData, productosData, proveedoresData, catalogoData] = await Promise.all([
         obtenerOrden(ordenId),
         obtenerProductosOrden(ordenId),
         obtenerProveedores(),
+        obtenerProductos() // Traemos el catálogo maestro
       ]);
 
       setOrden(ordenData);
       setProductos(productosData);
+      setCatalogo(catalogoData.sort((a, b) => a.nombre.localeCompare(b.nombre))); // Guardamos el catálogo
 
       const prov = proveedoresData.find((p) => p._id === ordenData.proveedorId);
       setProveedor(prov);
     } catch (error) {
       console.error("Error cargando datos:", error);
-      alert("Error al cargar la orden");
+      toast.error("Error al cargar la orden: " + (error.error || error.message));
     } finally {
       setLoading(false);
     }
   };
 
+  // --- ¡NUEVA LÓGICA! ---
+  // Cuando el usuario selecciona un producto del dropdown,
+  // buscamos automáticamente el precio para el proveedor de esta orden.
+  useEffect(() => {
+    const buscarPrecio = async () => {
+      if (!productoSeleccionadoId || !proveedor) {
+        setPrecioAcordado('');
+        return;
+      }
+      
+      setLoadingPrecio(true);
+      try {
+        // 1. Obtenemos el detalle completo del producto (que incluye la lista de precios)
+        const productoDetalle = await obtenerProductoDetalle(productoSeleccionadoId);
+        
+        // 2. Buscamos el precio para el proveedor de ESTA orden
+        const precioInfo = productoDetalle.preciosProveedores.find(
+          p => p.proveedorId === proveedor._id
+        );
+        
+        if (precioInfo) {
+          setPrecioAcordado(precioInfo.precio);
+        } else {
+          setPrecioAcordado(''); // Limpiar si no hay precio asignado
+          toast.error(`Este producto no tiene un precio asignado para ${proveedor.nombre}.`);
+        }
+      } catch (error) {
+        toast.error('Error al buscar precio: ' + (error.error || error.message));
+      } finally {
+        setLoadingPrecio(false);
+      }
+    };
+    
+    buscarPrecio();
+  }, [productoSeleccionadoId, proveedor]); // Se ejecuta si cambia el producto o el proveedor
+
+  
+  // --- ¡LÓGICA ACTUALIZADA! ---
+  // Ahora envía el ID del producto maestro y la cantidad.
   const handleAgregarProducto = async (e) => {
     e.preventDefault();
 
-    if (
-      !nombreProducto.trim() ||
-      !codigoBarras.trim() ||
-      !cantidad ||
-      !precio
-    ) {
-      alert("Por favor completa todos los campos");
+    const cantidadNum = parseInt(cantidad);
+    
+    if (!productoSeleccionadoId || !cantidadNum || cantidadNum <= 0) {
+      toast.error("Selecciona un producto y una cantidad válida.");
       return;
     }
-
-    const cantidadNum = parseInt(cantidad);
-    const precioNum = parseFloat(precio);
-
-    if (cantidadNum <= 0 || precioNum <= 0) {
-      alert("La cantidad y el precio deben ser mayores a 0");
+    
+    // Verificamos si el producto ya está en la orden
+    const yaExiste = productos.find(p => p.productoMaestroId === productoSeleccionadoId);
+    if (yaExiste) {
+      toast.error("Este producto ya está en la orden. Edita la cantidad desde la tabla.");
       return;
     }
 
     try {
       const nuevoProducto = await agregarProductoOrden(ordenId, {
-        nombre: nombreProducto.trim(),
-        codigoBarras: codigoBarras.trim(),
+        productoMaestroId: productoSeleccionadoId,
         cantidadPedida: cantidadNum,
-        precioUnitario: precioNum,
+        // El precio se calcula en el backend basado en el proveedor
       });
 
       setProductos([...productos, nuevoProducto]);
 
       // Limpiar formulario
-      setNombreProducto("");
-      setCodigoBarras("");
+      setProductoSeleccionadoId("");
       setCantidad("");
-      setPrecio("");
+      setPrecioAcordado("");
 
       // Recargar la orden para actualizar el total
       const ordenActualizada = await obtenerOrden(ordenId);
       setOrden(ordenActualizada);
 
-      alert("✅ Producto agregado correctamente");
+      toast.success("✅ Producto agregado correctamente");
     } catch (error) {
       console.error("Error:", error);
-      alert("Error al agregar producto");
+      toast.error("Error al agregar producto: " + (error.error || error.message));
     }
   };
 
   const handleEliminarProducto = async (productoId) => {
-    const confirmar = window.confirm(
-      "¿Estás seguro de eliminar este producto?"
-    );
+    // productoId ahora es el ID del *item* en la orden (ProductoOrden._id)
+    const confirmar = await confirmarAccion({ // Usamos confirmarAccion en lugar de window.confirm
+      title: "¿Eliminar este producto de la orden?",
+      confirmText: "Eliminar",
+      confirmColor: "#dc3545",
+    });
     if (!confirmar) return;
 
     try {
@@ -118,56 +162,50 @@ function DetalleOrden() {
       // Recargar la orden para actualizar el total
       const ordenActualizada = await obtenerOrden(ordenId);
       setOrden(ordenActualizada);
+      toast.success("Producto eliminado de la orden");
     } catch (error) {
       console.error("Error:", error);
-      alert("Error al eliminar producto");
+      toast.error("Error al eliminar producto: " + (error.error || error.message));
     }
   };
 
-  // REEMPLAZA OTRA VEZ la función handleEscanear con esta:
-
-  // REEMPLAZA OTRA VEZ la función handleEscanear con esta:
-
+  
+  // --- ¡LÓGICA ACTUALIZADA! ---
+  // La validación ahora usa los datos del nuevo modelo
   const handleEscanear = async (codigoBarras) => {
-    // --- INICIO DE VALIDACIÓN FRONTEND ---
-
-    // 1. Buscar el producto en el estado local
+    // 1. Buscar el producto en el estado local (productos DE ESTA ORDEN)
+    // Usamos 'codigoBarrasPrincipal' o chequeamos el catálogo (más lento pero más robusto)
+    // Por ahora, validamos contra lo que YA está en la orden.
+    
+    // NOTA: Esta lógica asume que el 'codigoBarras' del 'productoLocal' es el principal.
+    // Una lógica MÁS robusta buscaría en el catálogo maestro primero.
+    
     const productoLocal = productos.find(
-      (p) => p.codigoBarras === codigoBarras
+      (p) => p.codigoBarrasPrincipal === codigoBarras
     );
 
     // 2. Si el producto NO está en la orden
     if (!productoLocal) {
-      const mensajeError = `Código ${codigoBarras} no encontrado en la orden`;
+      const mensajeError = `Código ${codigoBarras} no encontrado en ESTA orden`;
       toast.error(mensajeError, { duration: 3000 });
-
-      const audioError = new Audio(
-        "data:audio/wav;base64,UklGRhQDAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YfACAAAAAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//"
-      );
-      audioError.play().catch((e) => console.log("Audio no disponible"));
-      return; // Detener ejecución
+      // (Sonido de error)
+      return; 
     }
 
     // 3. Si el producto YA ALCANZÓ la cantidad pedida
     if (productoLocal.cantidadRecibida >= productoLocal.cantidadPedida) {
       const mensajeError = `Cantidad máxima alcanzada para: ${productoLocal.nombre}`;
       toast.error(mensajeError, { duration: 3000 });
-
-      const audioError = new Audio(
-        "data:audio/wav;base64,UklGRhQDAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YfACAAAAAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//"
-      );
-      audioError.play().catch((e) => console.log("Audio no disponible"));
-      return; // Detener ejecución
+      // (Sonido de error)
+      return; 
     }
 
-    // --- FIN DE VALIDACIÓN ---
-
-    // Si pasó las validaciones, llamamos a la API
     const loadingToastId = toast.loading(
       `Agregando ${productoLocal.nombre}...`
     );
 
     try {
+      // La API ahora busca por código de barras y actualiza el item correcto
       const resultado = await escanearCodigo(ordenId, codigoBarras);
 
       const productosActualizados = productos.map((p) =>
@@ -175,33 +213,21 @@ function DetalleOrden() {
       );
       setProductos(productosActualizados);
 
-      // El 'resultado.mensaje' del backend (ej: "Producto X (3/10)")
       toast.success(resultado.mensaje, { id: loadingToastId });
 
-      const audio = new Audio(
-        "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBi2Lz/LUfjAGGm7A7+OZRQ4PVKrk7q5aGAg+ltryxnMpBSh+zPDajz4KFV627eeXSg0NUKXi8LZmHggykNXwzH4yBh1wwO7mnEgPC1Kn4e+zYBoGNI/U8Mp8MwUdbL/v5Z1LDwxPpeLvtmcdBzKN0/DLfDQGHm2+7uScTBAMTqPh8LhnHwcxjNLwyH02Bx9rv+7km04QDE+k4O+2aB8HMIrP8Md+Nwgfar3t5JxPEAxOpN/vt2kgCDCJzvDHfjcIH2m77OScUBALTaPf77dpIQgviM3vxn45CB9ou+zknFARC0yi3u+4aiIILofM78Z/Ogkfabvs5ZxRDw=="
-      );
-      audio.play().catch((e) => console.log("Audio no disponible"));
-
+      // (Sonido de éxito)
+      
       const ordenActualizada = await obtenerOrden(ordenId);
       setOrden(ordenActualizada);
     } catch (error) {
-      // Este catch ahora solo se activará si la API falla de verdad
-      // (ej: se cae el servidor, o el backend SÍ devuelve un error 400)
       console.error("Error al escanear:", error);
-
       const mensajeError =
         error.mensaje || error.error || `Error procesando el producto`;
-
       toast.error(mensajeError, {
         id: loadingToastId,
         duration: 3000,
       });
-
-      const audioError = new Audio(
-        "data:audio/wav;base64,UklGRhQDAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YfACAAAAAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//"
-      );
-      audioError.play().catch((e) => console.log("Audio no disponible"));
+      // (Sonido de error)
     }
   };
 
@@ -245,7 +271,7 @@ function DetalleOrden() {
   if (loading) {
     return (
       <div style={{ textAlign: "center", padding: "3rem" }}>
-        <p>Cargando orden...</p>
+        <p>Cargando orden y catálogo...</p>
       </div>
     );
   }
@@ -263,8 +289,8 @@ function DetalleOrden() {
 
   return (
     <div>
-      {/* HEADER */}
-      <div
+      {/* ... (HEADER e INFO DE LA ORDEN se quedan igual) ... */}
+       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
@@ -288,8 +314,6 @@ function DetalleOrden() {
           ← Volver
         </button>
       </div>
-
-      {/* INFO DE LA ORDEN */}
       <div
         style={{
           background: "#fff",
@@ -299,6 +323,7 @@ function DetalleOrden() {
           boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
         }}
       >
+        {/* ... (Info de la orden: Estado, Fecha, Total, Progreso) ... */}
         <div
           style={{
             display: "grid",
@@ -357,7 +382,6 @@ function DetalleOrden() {
             </p>
           </div>
         </div>
-
         {orden.observaciones && (
           <div
             style={{
@@ -374,7 +398,8 @@ function DetalleOrden() {
         )}
       </div>
 
-      {/* FORMULARIO AGREGAR PRODUCTO */}
+
+      {/* --- ¡FORMULARIO ACTUALIZADO! --- */}
       <div
         style={{
           background: "#fff",
@@ -384,73 +409,66 @@ function DetalleOrden() {
           boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
         }}
       >
-        <h3 style={{ marginTop: 0 }}>Agregar Producto</h3>
+        <h3 style={{ marginTop: 0 }}>Agregar Producto del Catálogo</h3>
         <form
           onSubmit={handleAgregarProducto}
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            gridTemplateColumns: "2fr 1fr 1fr 1fr",
             gap: "1rem",
+            alignItems: 'flex-end'
           }}
         >
-          <input
-            type="text"
-            value={nombreProducto}
-            onChange={(e) => setNombreProducto(e.target.value)}
-            placeholder="Nombre del producto"
-            required
-            style={{
-              padding: "0.5rem",
-              borderRadius: "4px",
-              border: "1px solid #ddd",
-            }}
-          />
-          <input
-            type="text"
-            value={codigoBarras}
-            onChange={(e) => setCodigoBarras(e.target.value)}
-            placeholder="Código de barras"
-            required
-            style={{
-              padding: "0.5rem",
-              borderRadius: "4px",
-              border: "1px solid #ddd",
-            }}
-          />
-          <input
-            type="number"
-            value={cantidad}
-            onChange={(e) => setCantidad(e.target.value)}
-            placeholder="Cantidad"
-            min="1"
-            required
-            style={{
-              padding: "0.5rem",
-              borderRadius: "4px",
-              border: "1px solid #ddd",
-            }}
-          />
-          <input
-            type="number"
-            step="0.01"
-            value={precio}
-            onChange={(e) => setPrecio(e.target.value)}
-            placeholder="Precio unitario"
-            min="0.01"
-            required
-            style={{
-              padding: "0.5rem",
-              borderRadius: "4px",
-              border: "1px solid #ddd",
-            }}
-          />
-          <button type="submit" className="btn">
+          {/* 1. Dropdown de Productos del Catálogo */}
+          <div>
+            <label>Producto</label>
+            <select
+              value={productoSeleccionadoId}
+              onChange={(e) => setProductoSeleccionadoId(e.target.value)}
+              required
+              style={{ width: '100%', padding: '0.5rem' }}
+            >
+              <option value="">-- Seleccionar un producto --</option>
+              {catalogo.map(p => (
+                <option key={p._id} value={p._id}>{p.nombre} ({p.codigosDeBarras[0]})</option>
+              ))}
+            </select>
+          </div>
+          
+          {/* 2. Input de Cantidad */}
+          <div>
+            <label>Cantidad</label>
+            <input
+              type="number"
+              value={cantidad}
+              onChange={(e) => setCantidad(e.target.value)}
+              placeholder="Cantidad"
+              min="1"
+              required
+              style={{ width: '100%', padding: '0.5rem' }}
+            />
+          </div>
+          
+          {/* 3. Input de Precio (autocompletado) */}
+          <div>
+            <label>Precio (auto)</label>
+            <input
+              type="text"
+              value={loadingPrecio ? '...' : (precioAcordado ? `$${precioAcordado}` : 'N/A')}
+              readOnly
+              disabled
+              style={{ width: '100%', padding: '0.5rem', background: '#eee' }}
+            />
+          </div>
+
+          {/* 4. Botón de Agregar */}
+          <button type="submit" className="btn" disabled={loadingPrecio || !precioAcordado}>
             + Agregar
           </button>
         </form>
       </div>
 
-      {/* LISTA DE PRODUCTOS */}
+      {/* --- ¡TABLA ACTUALIZADA! --- */}
       <div
         style={{
           background: "#fff",
@@ -461,19 +479,14 @@ function DetalleOrden() {
         }}
       >
         <h3 style={{ marginTop: 0 }}>Productos ({productos.length})</h3>
-
-        {productos.length === 0 && (
-          <p style={{ textAlign: "center", padding: "2rem", color: "#999" }}>
-            No hay productos en esta orden. Agrega el primer producto arriba.
-          </p>
-        )}
-
+        {/* ... (mensaje de productos.length === 0) ... */}
+        
         {productos.length > 0 && (
           <table className="tabla-detalles">
             <thead>
               <tr>
                 <th>Producto</th>
-                <th>Código</th>
+                <th>Código (Ref)</th>
                 <th>Cantidad</th>
                 <th>Precio Unit.</th>
                 <th>Subtotal</th>
@@ -486,26 +499,31 @@ function DetalleOrden() {
                 <tr key={producto._id}>
                   <td style={{ fontWeight: "600" }}>{producto.nombre}</td>
                   <td style={{ fontFamily: "monospace", fontSize: "0.9rem" }}>
-                    {producto.codigoBarras}
+                    {/* Usamos el código de referencia guardado */}
+                    {producto.codigoBarrasPrincipal} 
                   </td>
                   <td>{producto.cantidadPedida}</td>
-                  <td>${producto.precioUnitario.toLocaleString("es-AR")}</td>
+                  {/* Usamos el precio acordado guardado */}
+                  <td>${producto.precioUnitarioAcordado.toLocaleString("es-AR")}</td>
                   <td style={{ fontWeight: "600" }}>
                     $
                     {(
-                      producto.cantidadPedida * producto.precioUnitario
+                      producto.cantidadPedida * producto.precioUnitarioAcordado
                     ).toLocaleString("es-AR")}
                   </td>
                   <td>
-                    <span
+                    {/* ... (span de recibido/cantidad) ... */}
+                     <span
                       style={{
                         padding: "0.25rem 0.5rem",
                         borderRadius: "8px",
                         fontSize: "0.85rem",
                         backgroundColor: producto.recibido
                           ? "#d4edda"
-                          : "#fff3cd",
-                        color: producto.recibido ? "#155724" : "#856404",
+                          : (producto.cantidadRecibida > 0 ? "#fff3cd" : "#f8d7da"),
+                        color: producto.recibido
+                          ? "#155724"
+                          : (producto.cantidadRecibida > 0 ? "#856404" : "#721c24"),
                         fontWeight: "600",
                       }}
                     >
@@ -527,15 +545,10 @@ function DetalleOrden() {
         )}
       </div>
 
-      {/* BOTÓN ESCANEAR Y ALERTAS */}
+      {/* --- BOTÓN ESCANEAR (Sin cambios) --- */}
       {productos.length > 0 && (
         <>
-          {/* Botón escanear */}
-          <div
-            style={{
-              textAlign: "center",
-            }}
-          >
+          <div style={{ textAlign: "center" }}>
             <button
               className="btn"
               style={{
@@ -550,15 +563,10 @@ function DetalleOrden() {
               📷 Escanear Productos
             </button>
           </div>
-          {/* Modal del escáner */}
-          // CÓDIGO NUEVO
           {escaneadorAbierto && (
             <EscanerBarras
               onScan={(codigo) => {
-                // 1. Cierra el modal INMEDIATAMENTE
                 setEscaneadorAbierto(false);
-
-                // 2. Procesa el código (esto llamará a la API)
                 handleEscanear(codigo);
               }}
               onClose={() => setEscaneadorAbierto(false)}

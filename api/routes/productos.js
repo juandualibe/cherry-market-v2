@@ -1,3 +1,5 @@
+// api/routes/productos.js
+
 const express = require('express');
 const router = express.Router();
 const Producto = require('../models/Producto');
@@ -6,7 +8,11 @@ const Proveedor = require('../models/Proveedor');
 // GET /api/productos - Obtener TODOS los productos del catálogo
 router.get('/', async (req, res) => {
   try {
-    const productos = await Producto.find().select('nombre codigoBarras');
+    // --- ¡AQUÍ ESTABA EL ERROR! ---
+    // Decía 'codigoBarras' en singular. Ahora dice 'codigosDeBarras' en plural.
+    const productos = await Producto.find().select('nombre codigosDeBarras').lean();
+    // --- FIN DEL ARREGLO ---
+    
     res.json(productos);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -30,12 +36,18 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { nombre, codigoBarras, descripcion } = req.body;
-    const nuevoProducto = new Producto({ nombre, codigoBarras, descripcion });
+    
+    const nuevoProducto = new Producto({ 
+      nombre, 
+      codigosDeBarras: [codigoBarras], // Se guarda como un array
+      descripcion 
+    });
+    
     await nuevoProducto.save();
     res.status(201).json(nuevoProducto);
   } catch (error) {
     if (error.code === 11000) {
-      return res.status(400).json({ error: 'Ya existe un producto con ese código de barras' });
+      return res.status(400).json({ error: 'Ya existe un producto con ese nombre o código de barras' });
     }
     res.status(400).json({ error: error.message });
   }
@@ -43,20 +55,37 @@ router.post('/', async (req, res) => {
 
 // --- RUTAS CLAVE PARA PRECIOS ---
 
-// POST /api/productos/:id/precios - Agregar un precio de proveedor a un producto
+// POST /api/productos/:id/codigos - Agregar un CÓDIGO DE BARRAS a un producto
+router.post('/:id/codigos', async (req, res) => {
+  try {
+    const { codigoBarras } = req.body;
+    const producto = await Producto.findById(req.params.id);
+    if (!producto) {
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+    
+    // $addToSet evita duplicados
+    await Producto.updateOne(
+      { _id: req.params.id },
+      { $addToSet: { codigosDeBarras: codigoBarras } }
+    );
+    
+    res.status(200).json({ mensaje: 'Código agregado' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/productos/:id/precios - Agregar un PRECIO de proveedor a un producto
 router.post('/:id/precios', async (req, res) => {
   try {
     const { proveedorId, precio } = req.body;
     
     const producto = await Producto.findById(req.params.id);
-    if (!producto) {
-      return res.status(404).json({ error: 'Producto no encontrado' });
-    }
+    if (!producto) return res.status(404).json({ error: 'Producto no encontrado' });
 
     const proveedor = await Proveedor.findById(proveedorId);
-    if (!proveedor) {
-      return res.status(404).json({ error: 'Proveedor no encontrado' });
-    }
+    if (!proveedor) return res.status(404).json({ error: 'Proveedor no encontrado' });
     
     const precioExistente = producto.preciosProveedores.find(
       (p) => p.proveedorId.toString() === proveedorId
@@ -80,16 +109,14 @@ router.post('/:id/precios', async (req, res) => {
   }
 });
 
-// DELETE /api/productos/:id/precios/:precioId - Quitar un precio de un producto
+// DELETE /api/productos/:id/precios/:precioId - Quitar un PRECIO de un producto
 router.delete('/:id/precios/:precioId', async (req, res) => {
   try {
     const producto = await Producto.findById(req.params.id);
     if (!producto) {
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
-
     producto.preciosProveedores.pull({ _id: req.params.precioId });
-    
     await producto.save();
     res.json(producto);
   } catch (error) {

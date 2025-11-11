@@ -1,14 +1,13 @@
+// api/models/Producto.js
 const mongoose = require('mongoose');
 
-// Este es el "sub-documento" que guarda los precios por proveedor
+// Sub-documento para precios por proveedor (esto se queda igual)
 const PrecioProveedorSchema = new mongoose.Schema({
   proveedorId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Proveedor',
     required: true
   },
-  // Guardamos el nombre del proveedor aquí para
-  // no tener que hacer 'populate' (búsquedas extra)
   proveedorNombre: {
     type: String,
     required: true
@@ -20,18 +19,26 @@ const PrecioProveedorSchema = new mongoose.Schema({
   }
 }, { _id: true });
 
+// --- ESQUEMA DEL PRODUCTO MAESTRO ---
 const productoSchema = new mongoose.Schema({
   nombre: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
+    unique: true // Aseguramos que no haya dos "Coca-Cola 2.25L"
   },
-  codigoBarras: {
+
+  // --- ¡CAMBIO IMPORTANTE! ---
+  // Ahora es un array de códigos.
+  // Un producto puede tener múltiples códigos de barra.
+  codigosDeBarras: [{
     type: String,
-    required: true,
-    unique: true, // Forzamos a que no haya dos productos con el mismo código
-    trim: true
-  },
+    trim: true,
+    unique: true,
+    sparse: true // Permite 'null' o arrays vacíos sin romper el 'unique'
+  }],
+  // --- FIN DEL CAMBIO ---
+
   descripcion: {
     type: String,
     trim: true
@@ -40,5 +47,8 @@ const productoSchema = new mongoose.Schema({
 }, {
   timestamps: true,
 });
+
+// Índice para que la búsqueda por código de barras sea ultra-rápida
+productoSchema.index({ codigosDeBarras: 1 });
 
 module.exports = mongoose.model('Producto', productoSchema);

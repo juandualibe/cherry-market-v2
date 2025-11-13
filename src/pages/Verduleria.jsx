@@ -12,7 +12,7 @@ import {
   agregarGasto,
   editarGasto,
   eliminarGasto,
-} from "../services/api";
+} from "../services/apiPrincipal";
 import toast from "react-hot-toast";
 import { confirmarAccion } from "../utils/confirmUtils";
 

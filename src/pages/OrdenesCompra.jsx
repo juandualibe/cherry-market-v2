@@ -5,7 +5,7 @@ import {
   obtenerProveedores,
   crearOrden,
   eliminarOrden,
-} from "../services/api";
+} from "../services/apiPrincipal";
 import { obtenerFechaLocal, formatearFechaLocal } from "../utils/dateUtils";
 
 // --- ¡SOLUCIÓN AQUÍ! ---

@@ -48,7 +48,5 @@ const productoSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-// Índice para que la búsqueda por código de barras sea ultra-rápida
-productoSchema.index({ codigosDeBarras: 1 });
 
 module.exports = mongoose.model('Producto', productoSchema);

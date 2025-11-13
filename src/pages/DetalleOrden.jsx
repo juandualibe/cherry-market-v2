@@ -9,7 +9,7 @@ import {
   escanearCodigo,
   obtenerProductos, // <-- NUEVO: Para el catálogo
   obtenerProductoDetalle // <-- NUEVO: Para buscar precios
-} from "../services/api";
+} from "../services/apiPrincipal";
 import EscanerBarras from "../components/EscanerBarras";
 import { formatearFechaLocal } from "../utils/dateUtils";
 import toast from "react-hot-toast";

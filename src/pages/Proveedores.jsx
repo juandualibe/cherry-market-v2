@@ -12,7 +12,7 @@ import {
   agregarPago,
   editarPago,
   eliminarPago
-} from '../services/api';
+} from '../services/apiPrincipal';
 import { obtenerFechaLocal, formatearFechaLocal, sumarDias } from '../utils/dateUtils';
 import toast from 'react-hot-toast';
 import { confirmarAccion } from '../utils/confirmUtils.jsx';

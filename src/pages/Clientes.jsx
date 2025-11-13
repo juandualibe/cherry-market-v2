@@ -8,7 +8,7 @@ import {
   agregarDeuda,
   eliminarDeuda,
   editarDeuda,
-} from "../services/api";
+} from "../services/apiPrincipal";
 import { obtenerFechaLocal, formatearFechaLocal } from "../utils/dateUtils";
 import toast from "react-hot-toast";
 import { confirmarAccion } from '../utils/confirmUtils';

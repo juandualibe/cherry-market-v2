@@ -9,7 +9,7 @@ import {
   agregarPrecioProducto,
   eliminarPrecioProducto,
   obtenerProveedores // ¡Necesitamos esto!
-} from '../services/api';
+} from '../services/apiPrincipal';
 import { confirmarAccion } from '../utils/confirmUtils';
 
 function Productos() {

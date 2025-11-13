@@ -4,7 +4,7 @@ import {
   obtenerProveedores,
   obtenerFacturasProveedor,
   obtenerPagosProveedor,
-} from "../services/api";
+} from "../services/apiPrincipal";
 import * as XLSX from "xlsx";
 import { formatearFechaLocal } from "../utils/dateUtils";
 
@@ -145,7 +145,7 @@ function Inicio() {
         obtenerMeses,
         obtenerVentasMes,
         obtenerGastosMes,
-      } = await import("../services/api");
+      } = await import("../services/apiPrincipal");
 
       // Cargar todos los datos
       const clientes = await obtenerClientes();

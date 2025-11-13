@@ -773,15 +773,14 @@ p {
   box-shadow: var(--shadow-sm);
   font-size: 1.5rem; 
   margin: 0; 
-  /* CLAVE: Voltear la flecha para indicar expansión (el JSX maneja la rotación) */
-  /* NO HAY ROTACIÓN AQUÍ EN CSS */
-  position: relative; /* Mantenerlo en el flujo y centrado por el padre */
+  /* CLAVE: el JSX maneja la rotación a 180deg */
+  position: relative; 
   right: auto;
 }
 
 .sidebar.collapsed .sidebar-toggle:hover {
   background: var(--color-primary-dark);
-  /* Asegurar que solo escale, el JSX maneja la rotación de 180deg */
+  /* Asegurar que solo escale, el JSX maneja la rotación */
   transform: scale(1.1); 
 }
 /* --- FIN FIX 1 --- */
@@ -1209,7 +1208,7 @@ body.mobile-menu-open div[class*="Toaster"] {
   }
 
   .sidebar.mobile-open .sidebar-toggle {
-    display: block;
+    display: none !important; /* FIX: Ocultar el botón interno de colapsar */
   }
 
   .sidebar-footer {
@@ -1276,7 +1275,6 @@ body.mobile-menu-open {
     z-index: 999999 !important;
     pointer-events: none !important;
     margin: 0 !important;
-    padding: 0 !important;
   }
 
   /* Toasts individuales (clases dinámicas de react-hot-toast) */
@@ -1319,12 +1317,11 @@ body.mobile-menu-open {
 
 /* --- FIX 1: Botón de colapsar (Solución Final) --- */
 
-/* Modifica el .sidebar-toggle original para agregar margen a la derecha (expandido) */
 .sidebar-toggle {
   background: rgba(255, 255, 255, 0.1);
   border: none;
   color: white;
-  width: 32px; /* Tamaño original para estado expandido */
+  width: 32px; 
   height: 32px;
   border-radius: var(--border-radius-sm);
   cursor: pointer;
@@ -1336,9 +1333,7 @@ body.mobile-menu-open {
   justify-content: center;
   position: relative; 
   z-index: 10;
-  /* Espacio en el estado expandido */
   margin-left: var(--spacing-md); 
-  transform: rotate(0deg); 
 }
 
 .sidebar-toggle:hover {
@@ -1355,7 +1350,7 @@ body.mobile-menu-open {
   padding-top: var(--spacing-md); 
   padding-bottom: var(--spacing-md);
   justify-content: center; /* Centra el botón */
-  min-height: 70px; /* Altura más baja y compacta */
+  min-height: 70px; 
 }
 
 /* Ocultar el logo y el texto cuando el sidebar está colapsado */
@@ -1376,14 +1371,13 @@ body.mobile-menu-open {
   box-shadow: var(--shadow-sm);
   font-size: 1.5rem; 
   margin: 0; 
-  /* CLAVE: el JSX maneja la rotación a 180deg */
-  position: relative; /* Mantenerlo en el flujo y centrado por el padre */
+  position: relative; 
   right: auto;
 }
 
 .sidebar.collapsed .sidebar-toggle:hover {
   background: var(--color-primary-dark);
-  /* Asegurar que solo escale, el JSX maneja la rotación */
+  /* El JSX maneja la rotación. Solo aplicamos el scale en CSS. */
   transform: scale(1.1); 
 }
 /* --- FIN FIX 1 --- */

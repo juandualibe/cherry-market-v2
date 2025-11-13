@@ -173,60 +173,44 @@ function DetalleOrden() {
   // --- ¡LÓGICA ACTUALIZADA! ---
   // La validación ahora usa los datos del nuevo modelo
   const handleEscanear = async (codigoBarras) => {
-    // 1. Buscar el producto en el estado local (productos DE ESTA ORDEN)
-    // Usamos 'codigoBarrasPrincipal' o chequeamos el catálogo (más lento pero más robusto)
-    // Por ahora, validamos contra lo que YA está en la orden.
-    
-    // NOTA: Esta lógica asume que el 'codigoBarras' del 'productoLocal' es el principal.
-    // Una lógica MÁS robusta buscaría en el catálogo maestro primero.
-    
-    const productoLocal = productos.find(
-      (p) => p.codigoBarrasPrincipal === codigoBarras
+  // 1. Ya no hacemos la validación local (la borramos)
+  // const productoLocal = productos.find(...)
+  // if (!productoLocal) { ... }
+  // if (productoLocal.cantidadRecibida >= ...) { ... }
+
+  // 2. Mostramos el toast de carga
+  const loadingToastId = toast.loading(
+    `Procesando código ${codigoBarras}...`
+  );
+
+  try {
+    // 3. Llamamos a la API directamente.
+    // El backend hará TODA la validación por nosotros.
+    const resultado = await escanearCodigo(ordenId, codigoBarras);
+
+    // 4. Actualizamos el estado si todo salió bien
+    const productosActualizados = productos.map((p) =>
+      p._id === resultado.producto._id ? resultado.producto : p
     );
+    setProductos(productosActualizados);
 
-    // 2. Si el producto NO está en la orden
-    if (!productoLocal) {
-      const mensajeError = `Código ${codigoBarras} no encontrado en ESTA orden`;
-      toast.error(mensajeError, { duration: 3000 });
-      // (Sonido de error)
-      return; 
-    }
+    toast.success(resultado.mensaje, { id: loadingToastId });
 
-    // 3. Si el producto YA ALCANZÓ la cantidad pedida
-    if (productoLocal.cantidadRecibida >= productoLocal.cantidadPedida) {
-      const mensajeError = `Cantidad máxima alcanzada para: ${productoLocal.nombre}`;
-      toast.error(mensajeError, { duration: 3000 });
-      // (Sonido de error)
-      return; 
-    }
+    // (Sonido de éxito)
 
-    const loadingToastId = toast.loading(
-      `Agregando ${productoLocal.nombre}...`
-    );
+    const ordenActualizada = await obtenerOrden(ordenId);
+    setOrden(ordenActualizada);
 
-    try {
-      // La API ahora busca por código de barras y actualiza el item correcto
-      const resultado = await escanearCodigo(ordenId, codigoBarras);
+  } catch (error) {
+    // 5. Si la API devuelve un error (404, 400), lo mostramos
+    console.error("Error al escanear:", error);
+    const mensajeError =
+      error.mensaje || error.error || `Error procesando el producto`;
 
-      const productosActualizados = productos.map((p) =>
-        p._id === resultado.producto._id ? resultado.producto : p
-      );
-      setProductos(productosActualizados);
-
-      toast.success(resultado.mensaje, { id: loadingToastId });
-
-      // (Sonido de éxito)
-      
-      const ordenActualizada = await obtenerOrden(ordenId);
-      setOrden(ordenActualizada);
-    } catch (error) {
-      console.error("Error al escanear:", error);
-      const mensajeError =
-        error.mensaje || error.error || `Error procesando el producto`;
-      toast.error(mensajeError, {
-        id: loadingToastId,
-        duration: 3000,
-      });
+    toast.error(mensajeError, {
+      id: loadingToastId,
+      duration: 3000,
+    });
       // (Sonido de error)
     }
   };

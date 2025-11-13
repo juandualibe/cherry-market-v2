@@ -13,6 +13,8 @@ import {
   editarGasto,
   eliminarGasto,
 } from "../services/api";
+import toast from "react-hot-toast";
+import { confirmarAccion } from "../utils/confirmUtils";
 
 // --- Función para obtener fecha local ---
 const obtenerFechaLocal = () => {
@@ -49,8 +51,18 @@ const obtenerDiaSemana = (fechaString) => {
 // --- Función para formatear mes a texto ---
 const formatearMesTexto = (mesString) => {
   const meses = [
-    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+    "Enero",
+    "Febrero",
+    "Marzo",
+    "Abril",
+    "Mayo",
+    "Junio",
+    "Julio",
+    "Agosto",
+    "Septiembre",
+    "Octubre",
+    "Noviembre",
+    "Diciembre",
   ];
   const [año, mes] = mesString.split("-");
   return `${meses[parseInt(mes) - 1]} ${año}`;
@@ -108,7 +120,7 @@ function Verduleria() {
       setMeses(mesesData);
     } catch (error) {
       console.error("Error cargando meses:", error);
-      alert("Error al cargar los datos. ¿Está el backend funcionando?");
+      toast.error("Error al cargar los datos. ¿Está el backend funcionando?");
     } finally {
       setLoading(false);
     }
@@ -122,6 +134,7 @@ function Verduleria() {
       setGastosFijos(gastosData);
     } catch (error) {
       console.error("Error cargando datos del mes:", error);
+      toast.error("Error al cargar datos del mes");
     }
   };
 
@@ -133,7 +146,7 @@ function Verduleria() {
 
     const mesExiste = meses.find((m) => m.mesId === nombreNuevoMes);
     if (mesExiste) {
-      alert("Este mes ya existe");
+      toast.error("Este mes ya existe");
       return;
     }
 
@@ -158,16 +171,20 @@ function Verduleria() {
       // Recargar gastos
       const gastosData = await obtenerGastosMes(nuevoMes.mesId);
       setGastosFijos(gastosData);
+      toast.success(`Mes ${nuevoMes.nombre} creado`);
     } catch (error) {
       console.error("Error:", error);
-      alert("Error al crear mes");
+      toast.error("Error al crear mes");
     }
   };
 
   const handleEliminarMes = async (mesId) => {
-    const confirmar = window.confirm(
-      "¿Estás seguro de eliminar este mes? Se borrarán TODAS las ventas y gastos asociados."
-    );
+    const confirmar = await confirmarAccion({
+      title: "¿Eliminar este mes?",
+      message: "Se borrarán TODAS las ventas y gastos asociados.",
+      confirmText: "Eliminar",
+      confirmColor: "#dc3545",
+    });
     if (!confirmar) return;
 
     try {
@@ -179,9 +196,10 @@ function Verduleria() {
         setVentas([]);
         setGastosFijos([]);
       }
+      toast.success("Mes eliminado");
     } catch (error) {
       console.error("Error:", error);
-      alert("Error al eliminar mes");
+      toast.error("Error al eliminar mes");
     }
   };
 
@@ -205,13 +223,13 @@ function Verduleria() {
     const venta = montoVenta === "" ? 0 : parseFloat(montoVenta);
 
     if (!mesSeleccionado) {
-      alert("Por favor, selecciona un mes primero");
+      toast.error("Por favor, selecciona un mes primero");
       return;
     }
 
     // ✅ Validar que al menos haya ALGÚN valor (no todo en 0)
     if (costo === 0 && gastos === 0 && venta === 0) {
-      alert("Debe haber al menos un valor distinto de cero");
+      toast.error("Debe haber al menos un valor distinto de cero");
       return;
     }
 
@@ -232,22 +250,28 @@ function Verduleria() {
       setGastosVenta("");
       setMontoVenta("");
       setFechaNuevaVenta(obtenerFechaLocal());
+      toast.success("Venta registrada");
     } catch (error) {
       console.error("Error:", error);
-      alert("Error al agregar venta");
+      toast.error("Error al agregar venta");
     }
   };
 
   const handleEliminarVenta = async (ventaId) => {
-    const confirmar = window.confirm("¿Estás seguro de eliminar esta venta?");
+    const confirmar = await confirmarAccion({
+      title: "¿Eliminar esta venta?",
+      confirmText: "Eliminar",
+      confirmColor: "#dc3545",
+    });
     if (!confirmar) return;
 
     try {
       await eliminarVenta(ventaId);
       setVentas(ventas.filter((v) => v._id !== ventaId));
+      toast.success("Venta eliminada");
     } catch (error) {
       console.error("Error:", error);
-      alert("Error al eliminar venta");
+      toast.error("Error al eliminar venta");
     }
   };
 
@@ -301,8 +325,8 @@ function Verduleria() {
     const gastos = parseFloat(itemEditando.gastos);
     const venta = parseFloat(itemEditando.venta);
 
-    if (!costo || !gastos || !venta) {
-      alert("Todos los campos deben tener valores válidos");
+    if (isNaN(costo) || isNaN(gastos) || isNaN(venta)) {
+      toast.error("Todos los campos deben tener valores numéricos válidos");
       return;
     }
 
@@ -333,10 +357,10 @@ function Verduleria() {
 
       setVentas(ventasActualizadas);
       handleCerrarModales();
-      alert("✅ Venta editada correctamente");
+      toast.success("✅ Venta editada correctamente");
     } catch (error) {
       console.error("Error:", error);
-      alert("Error al editar venta");
+      toast.error("Error al editar venta");
     }
   };
 
@@ -397,11 +421,10 @@ function Verduleria() {
 
       // ✅ Mostrar confirmación cuando termine de sincronizar
       console.log("✅ Gastos sincronizados con el servidor");
+      toast.success("Gastos guardados");
     } catch (error) {
       console.error("Error:", error);
-      alert(
-        "⚠️ Los cambios se guardaron localmente pero hubo un error al sincronizar con el servidor. Recarga la página."
-      );
+      toast.error("⚠️ Error al sincronizar. Recarga la página.");
       // Recargar datos del servidor para estar seguros
       await cargarDatosMes(mesSeleccionado.mesId);
     }
@@ -600,7 +623,7 @@ function Verduleria() {
         }
 
         if (!nombreMes) {
-          alert("No se pudo detectar el nombre del mes en el Excel.");
+          toast.error("No se pudo detectar el nombre del mes en el Excel.");
           return;
         }
 
@@ -688,9 +711,12 @@ function Verduleria() {
           }
         }
 
-        const confirmar = window.confirm(
-          `Se encontraron ${nuevasVentas.length} ventas y ${nuevosGastosFijos.length} gastos fijos. ¿Deseas importarlos?`
-        );
+        const confirmar = await confirmarAccion({
+          title: "Importar datos",
+          message: `Se encontraron ${nuevasVentas.length} ventas y ${nuevosGastosFijos.length} gastos fijos. ¿Deseas importarlos?`,
+          confirmText: "Importar",
+          confirmColor: "#28a745",
+        });
 
         if (confirmar) {
           let mesAUsar = mesExistente;
@@ -714,11 +740,11 @@ function Verduleria() {
             await cargarDatosMes(mesAUsar.mesId);
           }
 
-          alert("¡Datos importados con éxito!");
+          toast.success("¡Datos importados con éxito!");
         }
       } catch (error) {
         console.error("Error al leer el archivo de Excel:", error);
-        alert(
+        toast.error(
           "Hubo un error al leer el archivo. Asegúrate de que tenga el formato correcto."
         );
       }

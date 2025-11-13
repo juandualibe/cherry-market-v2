@@ -2,10 +2,22 @@
 
 import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
 
 function Navegacion() {
+  const { user, logout } = useAuth(); // <-- AÑADE ESTA LÍNEA
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  // --- INICIO: Lógica para calcular iniciales ---
+  let avatarInitials = '?'; // Valor por defecto si el usuario no ha cargado
+  if (user && user.nombre) {
+    const words = user.nombre.split(' ');
+    const firstInitial = words[0] ? words[0][0] : '';
+    const lastInitial = words.length > 1 ? words[words.length - 1][0] : '';
+    avatarInitials = (firstInitial + lastInitial).toUpperCase();
+  }
+  // --- FIN: Lógica para calcular iniciales ---
 
   useEffect(() => {
     const handleResize = () => {
@@ -122,9 +134,7 @@ function Navegacion() {
             <span className="nav-icon">🏷️</span>
             {!isCollapsed && <span className="nav-text">Productos</span>}
           </NavLink>
-        </nav>
-
-        <NavLink
+          <NavLink
           to="/ordenes"
           className={({ isActive }) =>
             isActive ? "nav-item active" : "nav-item"
@@ -134,18 +144,41 @@ function Navegacion() {
           <span className="nav-icon">📦</span>
           {!isCollapsed && <span className="nav-text">Órdenes</span>}
         </NavLink>
+        </nav>
+
+        
 
         <div className="sidebar-footer">
           <div className="user-info">
-            <div className="user-avatar">JD</div>
+            <div className="user-avatar">{avatarInitials}</div>
             {!isCollapsed && (
               <div className="user-details">
-                <div className="user-name">juandualibe</div>
-                <div className="user-role">Administrador</div>
+                <div className="user-name">
+                  {user ? user.nombre : "Cargando..."}
+                </div>
+                <div className="user-role">{user ? user.rol : "..."}</div>
               </div>
             )}
+            
           </div>
         </div>
+        {/* --- ¡AQUÍ ESTÁ EL BOTÓN DE LOGOUT! --- */}       {" "}
+            {!isCollapsed && (
+              <button
+                onClick={logout}
+                className="btn"
+                style={{
+                  width: "calc(100% - 2rem)",
+                  margin: "0.5rem 1rem 1rem 1rem",
+                  backgroundColor: "var(--color-danger)",
+                  fontSize: "0.9rem",
+                  padding: "0.75rem",
+                }}
+              >
+                            Cerrar Sesión          {" "}
+              </button>
+            )}
+                    {/* --- FIN DEL BLOQUE AÑADIDO --- */}
       </aside>
     </>
   );
